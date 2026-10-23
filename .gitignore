@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+backend/prismcheck.db
+backend/storage/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Browser verification artifacts
+.playwright-mcp/
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Generated PDF build cache
+project_docs/_toc.json
