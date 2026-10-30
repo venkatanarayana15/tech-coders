@@ -375,7 +375,7 @@ def get_draft(
 
 @app.post("/api/drafts")
 async def create_draft(
-    title: str = Form(...),
+    title: str = Form(""),
     caption: str = Form(""),
     alt_text: str = Form(""),
     kit_id: str = Form("kit-northwind"),
