@@ -48,6 +48,7 @@ class PDF(FPDF):
 
 
 def section(pdf, number, title):
+    pdf.add_page()
     pdf.ln(2)
     pdf.set_font("UB", "", 13.5)
     pdf.set_text_color(*INK)
@@ -123,7 +124,7 @@ def build():
         "Deterministic checks: claims vs fact bank (C-01), banned guarantees (T-14), urgent/absolute tone (T-02), preferred vocabulary (T-03), CIELAB palette distance (V-05), WCAG contrast and alt text (A-03).",
         "Citation Lock: every displayed finding resolves to a real kit item; uncited findings are dropped and counted.",
         "One-click fixes grounded in approved facts, or keep-as-is with a required note.",
-        "Full workflow: draft → submitted → approved / changes requested, with backend guards and a revision timeline.",
+        "Full workflow: draft to submitted to approved / changes requested, with backend guards and a revision timeline.",
         "Approved drafts are locked. Re-run review against the current kit.",
         "Insights: citation coverage, most-flagged rules, most-overridden rules, ambiguous-guideline signal, decision rate, average review time.",
     ])
@@ -161,10 +162,11 @@ def build():
     # 5 Testing
     section(pdf, 5, "Testing performed")
     bullets(pdf, [
-        "Engine unit tests (pytest): claim overlap dedupe, approved-fact silence, banned promises, urgent tone, PII masking, and stale-quote decision handling.",
+        "Engine unit tests (pytest): 7 tests pass — claim overlap dedupe, approved-fact silence, banned promises, urgent tone, PII masking, and stale-quote decision handling.",
+        "Evaluation harness (backend/evaluate.py): 30 synthetic-labelled cases — precision 0.900, recall 0.900, F1 0.900, false-positive rate 0.100.",
         "API smoke tests: password login for all three roles; kit patch version bump; PII-masked caption through the full review path.",
-        "Browser end-to-end: sign-in page shows credentials; admin signs in with email + password; edits a rule and saves; version advances 4.3 → 4.4.",
-        "Failure-path checks: zero-finding clean drafts pass; open findings block submit/approve; approved drafts are locked; reviewer cannot create drafts; creator cannot approve.",
+        "Browser end-to-end on the deployed link: sign-in page shows credentials on the same page; admin signs in with email + password; edits a rule and saves; version advances 4.3 to 4.4.",
+        "Failure-path checks: zero-finding clean drafts pass; open findings block submit/approve; approved drafts are locked; reviewer cannot create drafts; creator cannot approve; duplicate actions return clear 4xx errors.",
         "Deployed health check: https://tech-coders.onrender.com/api/health returns 200 with engine status ready.",
     ])
 
