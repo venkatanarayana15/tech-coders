@@ -12,8 +12,9 @@ All three demo accounts use the password `demo123`. The same credentials are sho
 
 | Role | Email | Permissions |
 | --- | --- | --- |
-| Creator | `ananya@northwind.example` | Submit drafts, resolve findings, submit for review |
-| Reviewer | `kabir@northwind.example` | Approve or request changes on submitted drafts |
+| Creator | `ananya@northwind.example` | Own drafts only: create, resolve findings, submit for review |
+| Creator | `rohan@northwind.example` | Own drafts only: create, resolve findings, submit for review |
+| Reviewer | `kabir@northwind.example` | See all drafts; approve or request changes on submitted drafts |
 | Admin | `meera@northwind.example` | Everything above, plus editing the brand kit |
 
 ## Features

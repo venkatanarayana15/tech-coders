@@ -133,6 +133,7 @@ def build():
     section(pdf, 2, "Demo access")
     kv(pdf, [
         ("Creator", "ananya@northwind.example · password demo123"),
+        ("Creator", "rohan@northwind.example · password demo123"),
         ("Reviewer", "kabir@northwind.example · password demo123"),
         ("Admin", "meera@northwind.example · password demo123"),
     ])

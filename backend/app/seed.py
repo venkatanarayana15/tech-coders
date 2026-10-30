@@ -23,6 +23,14 @@ USERS = [
         password_hash=hash_password(DEMO_PASSWORD),
     ),
     User(
+        id="u-creator2",
+        name="Rohan Iyer",
+        role="creator",
+        email="rohan@northwind.example",
+        initials="RI",
+        password_hash=hash_password(DEMO_PASSWORD),
+    ),
+    User(
         id="u-reviewer",
         name="Kabir Menon",
         role="reviewer",
