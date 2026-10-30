@@ -105,8 +105,8 @@ export default function NewReview({ user, navigate, notify }) {
       setError('Give the draft a title.');
       return;
     }
-    if (!caption.trim() && !document) {
-      setError('Add a caption or a document so there is something to review.');
+    if (!caption.trim() && !document && !image) {
+      setError('Add a caption, artwork, or a document so there is something to review.');
       return;
     }
     const form = new FormData();

@@ -406,8 +406,11 @@ async def create_draft(
     caption = mask_pii(caption.strip())
     doc_text = mask_pii(doc_text)
 
-    if not caption.strip() and not doc_text.strip():
-        raise HTTPException(status_code=400, detail="Add a caption or a document to review.")
+    if not caption.strip() and not doc_text.strip() and stored_image is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Add a caption, artwork, or a document to review.",
+        )
 
     kit_row = db.get(Kit, kit_id)
     kit = kit_row.data if kit_row else _get_kit_data(db)
