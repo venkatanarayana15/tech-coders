@@ -18,11 +18,14 @@ const TABS = [
   { id: 'language', label: 'Language' },
 ];
 
-export default function Kit({ navigate, notify }) {
+export default function Kit({ user, navigate, notify }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('rules');
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -51,6 +54,50 @@ export default function Kit({ navigate, notify }) {
     [kit],
   );
 
+  function beginEdit() {
+    setDraft(JSON.parse(JSON.stringify(kit)));
+    setEditing(true);
+  }
+
+  function patchPart(part, index, field, value) {
+    setDraft((current) => {
+      const next = JSON.parse(JSON.stringify(current));
+      next[part][index][field] = value;
+      return next;
+    });
+  }
+
+  function patchTop(field, value) {
+    setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveEdit() {
+    if (!draft) return;
+    setSaving(true);
+    setError('');
+    try {
+      const payload = {
+        audience: draft.audience,
+        tone: draft.tone,
+        tolerance: draft.tolerance,
+        palette: draft.palette,
+        rules: draft.rules,
+        facts: draft.facts,
+        banned: draft.banned,
+        preferred: draft.preferred,
+      };
+      const result = await api.updateKit(payload);
+      setData({ kit: result.kit });
+      setEditing(false);
+      setDraft(null);
+      notify('Brand kit saved. New version recorded.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="page kit-page">
       <PageHeader
@@ -63,6 +110,22 @@ export default function Kit({ navigate, notify }) {
         }
         actions={
           <>
+            {user?.role === 'admin' ? (
+              editing ? (
+                <>
+                  <Button variant="secondary" onClick={() => { setEditing(false); setDraft(null); }}>
+                    Cancel
+                  </Button>
+                  <Button onClick={saveEdit} disabled={saving}>
+                    {saving ? 'Saving…' : 'Save kit'}
+                  </Button>
+                </>
+              ) : (
+                <Button variant="secondary" onClick={beginEdit}>
+                  Edit kit
+                </Button>
+              )
+            ) : null}
             <Button variant="secondary" icon="shield" onClick={() => navigate('/insights')}>
               View signals
             </Button>
@@ -115,6 +178,47 @@ export default function Kit({ navigate, notify }) {
             </div>
           </section>
 
+          {editing ? (
+            <section className="kit-edit-settings">
+              <label>
+                <span>Audience</span>
+                <textarea
+                  value={draft.audience || ''}
+                  onChange={(event) => patchTop('audience', event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label>
+                <span>Colour tolerance ΔE</span>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={draft.tolerance?.delta_e ?? 12}
+                  onChange={(event) =>
+                    patchTop('tolerance', {
+                      ...draft.tolerance,
+                      delta_e: Number(event.target.value),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                <span>Minimum contrast</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={draft.tolerance?.min_contrast ?? 4.5}
+                  onChange={(event) =>
+                    patchTop('tolerance', {
+                      ...draft.tolerance,
+                      min_contrast: Number(event.target.value),
+                    })
+                  }
+                />
+              </label>
+            </section>
+          ) : null}
+
           <div className="kit-tabs" role="tablist" aria-label="Brand kit sections">
             {TABS.map((item) => (
               <button
@@ -143,7 +247,7 @@ export default function Kit({ navigate, notify }) {
                 </p>
               </div>
               <div className="rule-grid">
-                {kit.rules.map((rule) => {
+                {kit.rules.map((rule, index) => {
                   const meta = checkMeta(rule.check);
                   return (
                     <article className="rule-card" key={rule.id}>
@@ -154,8 +258,40 @@ export default function Kit({ navigate, notify }) {
                           <Badge tone={meta.tone}>{meta.label}</Badge>
                         </div>
                       </div>
-                      <h3>{rule.label}</h3>
-                      <p>{rule.text}</p>
+                      {editing ? (
+                        <div className="kit-edit-fields">
+                          <label>
+                            <span>Label</span>
+                            <input
+                              value={draft.rules[index].label}
+                              onChange={(event) => patchPart('rules', index, 'label', event.target.value)}
+                            />
+                          </label>
+                          <label>
+                            <span>Severity</span>
+                            <select
+                              value={draft.rules[index].severity}
+                              onChange={(event) => patchPart('rules', index, 'severity', event.target.value)}
+                            >
+                              <option value="hard">Hard stop</option>
+                              <option value="soft">Soft note</option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Rule text</span>
+                            <textarea
+                              value={draft.rules[index].text}
+                              onChange={(event) => patchPart('rules', index, 'text', event.target.value)}
+                              rows={3}
+                            />
+                          </label>
+                        </div>
+                      ) : (
+                        <>
+                          <h3>{rule.label}</h3>
+                          <p>{rule.text}</p>
+                        </>
+                      )}
                       <span className="rule-foot">
                         <Icon name="shield" size={14} />
                         Resolvable source
@@ -177,13 +313,26 @@ export default function Kit({ navigate, notify }) {
                 <p>A finding can only suggest wording that already exists here.</p>
               </div>
               <div className="fact-grid">
-                {kit.facts.map((fact) => (
+                {kit.facts.map((fact, index) => (
                   <article className="fact-card" key={fact.id}>
                     <div className="fact-top">
                       <code>{fact.id}</code>
                       <Badge tone="neutral">{fact.category}</Badge>
                     </div>
-                    <p>{fact.text}</p>
+                    {editing ? (
+                      <div className="kit-edit-fields">
+                        <label>
+                          <span>Approved fact</span>
+                          <textarea
+                            value={draft.facts[index].text}
+                            onChange={(event) => patchPart('facts', index, 'text', event.target.value)}
+                            rows={3}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <p>{fact.text}</p>
+                    )}
                     <span className="fact-foot">
                       <Icon name="check" size={14} /> Approved wording
                     </span>
@@ -206,16 +355,42 @@ export default function Kit({ navigate, notify }) {
                 </p>
               </div>
               <div className="palette-grid">
-                {kit.palette.map((colour) => (
+                {kit.palette.map((colour, index) => (
                   <article className="palette-card" key={colour.id}>
                     <span className="swatch" style={{ background: colour.hex }} />
-                    <div className="palette-info">
-                      <div>
-                        <strong>{colour.name}</strong>
-                        <code>{colour.hex}</code>
+                    {editing ? (
+                      <div className="kit-edit-fields">
+                        <label>
+                          <span>Name</span>
+                          <input
+                            value={draft.palette[index].name}
+                            onChange={(event) => patchPart('palette', index, 'name', event.target.value)}
+                          />
+                        </label>
+                        <label>
+                          <span>Hex</span>
+                          <input
+                            value={draft.palette[index].hex}
+                            onChange={(event) => patchPart('palette', index, 'hex', event.target.value)}
+                          />
+                        </label>
+                        <label>
+                          <span>Role</span>
+                          <input
+                            value={draft.palette[index].role}
+                            onChange={(event) => patchPart('palette', index, 'role', event.target.value)}
+                          />
+                        </label>
                       </div>
-                      <Badge tone="neutral">{colour.role}</Badge>
-                    </div>
+                    ) : (
+                      <div className="palette-info">
+                        <div>
+                          <strong>{colour.name}</strong>
+                          <code>{colour.hex}</code>
+                        </div>
+                        <Badge tone="neutral">{colour.role}</Badge>
+                      </div>
+                    )}
                     <div className="palette-foot">
                       <span>{colour.id}</span>
                       <CopyButton
@@ -255,10 +430,27 @@ export default function Kit({ navigate, notify }) {
                     <Badge tone="red">{kit.banned.length}</Badge>
                   </div>
                   <div className="language-list">
-                    {kit.banned.map((entry) => (
+                    {kit.banned.map((entry, index) => (
                       <div className="language-row" key={entry.id}>
-                        <span className="language-term">{entry.term}</span>
-                        <code>{entry.rule_id}</code>
+                        {editing ? (
+                          <>
+                            <input
+                              className="kit-edit-inline"
+                              value={draft.banned[index].term}
+                              onChange={(event) => patchPart('banned', index, 'term', event.target.value)}
+                            />
+                            <input
+                              className="kit-edit-inline code"
+                              value={draft.banned[index].rule_id}
+                              onChange={(event) => patchPart('banned', index, 'rule_id', event.target.value)}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <span className="language-term">{entry.term}</span>
+                            <code>{entry.rule_id}</code>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -273,12 +465,35 @@ export default function Kit({ navigate, notify }) {
                     <Badge tone="amber">{kit.preferred.length}</Badge>
                   </div>
                   <div className="language-list">
-                    {kit.preferred.map((entry) => (
+                    {kit.preferred.map((entry, index) => (
                       <div className="language-row swap" key={entry.id}>
-                        <span className="swap-from">{entry.from}</span>
-                        <Icon name="arrowRight" size={14} />
-                        <span className="swap-to">{entry.to}</span>
-                        <code>{entry.rule_id}</code>
+                        {editing ? (
+                          <>
+                            <input
+                              className="kit-edit-inline"
+                              value={draft.preferred[index].from}
+                              onChange={(event) => patchPart('preferred', index, 'from', event.target.value)}
+                            />
+                            <Icon name="arrowRight" size={14} />
+                            <input
+                              className="kit-edit-inline"
+                              value={draft.preferred[index].to}
+                              onChange={(event) => patchPart('preferred', index, 'to', event.target.value)}
+                            />
+                            <input
+                              className="kit-edit-inline code"
+                              value={draft.preferred[index].rule_id}
+                              onChange={(event) => patchPart('preferred', index, 'rule_id', event.target.value)}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <span className="swap-from">{entry.from}</span>
+                            <Icon name="arrowRight" size={14} />
+                            <span className="swap-to">{entry.to}</span>
+                            <code>{entry.rule_id}</code>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

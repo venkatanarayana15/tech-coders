@@ -25,6 +25,19 @@ def iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
+def _replace_first_case(text: str, old: str, new: str) -> tuple[str, bool]:
+    idx = text.lower().find(old.lower())
+    if idx == -1:
+        return text, False
+    actual = text[idx : idx + len(old)]
+    if actual[:1].isupper() and new:
+        new = new[:1].upper() + new[1:]
+    replaced = text[:idx] + new + text[idx + len(old) :]
+    replaced = re.sub(r"([.!?])\1+", r"\1", replaced)
+    replaced = re.sub(r"\s+([,.;:])", r"\1", replaced)
+    return re.sub(r"\s{2,}", " ", replaced).strip(), True
+
+
 def add_revision(
     session: Session, draft: Draft, actor: User, action: str, summary: str
 ) -> Revision:
@@ -64,18 +77,13 @@ def apply_decision(
             fix = finding.fixes[index]
             text = fix.get("text", "")
             if finding.field == "caption" and text is not None and finding.quote:
-                pattern = re.compile(re.escape(finding.quote), re.IGNORECASE)
-                if pattern.search(draft.caption):
-                    def replace(match: re.Match) -> str:
-                        replacement = text
-                        if match.group(0)[:1].isupper() and replacement:
-                            replacement = replacement[:1].upper() + replacement[1:]
-                        return replacement
-
-                    updated = pattern.sub(replace, draft.caption, count=1)
-                    updated = re.sub(r"([.!?])\1+", r"\1", updated)
-                    updated = re.sub(r"\s+([,.;:])", r"\1", updated)
-                    draft.caption = re.sub(r"\s{2,}", " ", updated).strip()
+                draft.caption, applied = _replace_first_case(
+                    draft.caption, finding.quote, text
+                )
+                if not applied and note.strip():
+                    note = f"{note.strip()} (note: the exact quote was no longer present, so no text was changed)"
+                elif not applied:
+                    note = "The exact quote was no longer present, so no text was changed."
             elif finding.field == "alt_text" and text:
                 draft.alt_text = text
         finding.decision = "accepted"

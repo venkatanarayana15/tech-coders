@@ -43,7 +43,7 @@ const json = (body) => ({
 export const api = {
   session: () => request('/api/session'),
   users: () => request('/api/users'),
-  signIn: (userId) => request('/api/session', json({ user_id: userId })),
+  signIn: (credentials) => request('/api/session', json(credentials)),
   signOut: () => request('/api/session', { method: 'DELETE' }),
   bootstrap: () => request('/api/bootstrap'),
   drafts: () => request('/api/drafts'),
@@ -59,6 +59,7 @@ export const api = {
   rerun: (id) => request(`/api/drafts/${encodeURIComponent(id)}/rerun`, { method: 'POST' }),
   insights: () => request('/api/insights'),
   kit: () => request('/api/kit'),
+  updateKit: (payload) => request('/api/kit', { ...json(payload), method: 'PATCH' }),
 };
 
 export function go(path) {

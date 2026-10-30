@@ -13,6 +13,9 @@ export default function SignIn({ onSignIn }) {
   const [error, setError] = useState('');
   const [active, setActive] = useState('');
   const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -32,15 +35,33 @@ export default function SignIn({ onSignIn }) {
     };
   }, []);
 
-  async function pick(user) {
-    setError('');
-    setActive(user.id);
+  async function signInWith(credentials) {
+    setFormError('');
+    setActive(credentials.email || '');
     try {
-      await onSignIn(user.id);
+      await onSignIn({
+        email: credentials.email,
+        password: credentials.password,
+      });
     } catch (err) {
-      setError(err.message);
+      setFormError(err.message);
       setActive('');
     }
+  }
+
+  function pick(user) {
+    setEmail(user.email);
+    setPassword(user.password);
+    signInWith(user);
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    if (!email.trim() || !password) {
+      setFormError('Enter the demo email and password.');
+      return;
+    }
+    signInWith({ email: email.trim(), password });
   }
 
   return (
@@ -91,7 +112,7 @@ export default function SignIn({ onSignIn }) {
         </div>
 
         <p className="signin-foot">
-          Tech Circuit Round 2 <span>·</span> Northwind Bank demo workspace
+          Tech Circuit Round 3 <span>·</span> Northwind Bank demo workspace
         </p>
       </section>
 
@@ -100,8 +121,36 @@ export default function SignIn({ onSignIn }) {
           <div className="signin-card-head">
             <p className="eyebrow">Demo access</p>
             <h2>Step into the workspace</h2>
-            <p>Choose a role. No password, no setup — the seeded workspace is ready.</p>
+            <p>Use any demo account. Email and password are shown below.</p>
           </div>
+
+          <form className="signin-form" onSubmit={handleSubmit}>
+            <label className="signin-field">
+              <span>Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@northwind.example"
+                autoComplete="username"
+              />
+            </label>
+            <label className="signin-field">
+              <span>Password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="demo123"
+                autoComplete="current-password"
+              />
+            </label>
+            <button type="submit" className="signin-submit" disabled={Boolean(active)}>
+              {active ? <Spinner size={17} /> : 'Sign in'}
+            </button>
+            {formError ? <p className="form-error">{formError}</p> : null}
+            <p className="signin-hint">One-click demo accounts below.</p>
+          </form>
 
           {loading ? (
             <LoadingBlock label="Loading demo roles…" />
@@ -121,6 +170,9 @@ export default function SignIn({ onSignIn }) {
                   <span className="role-copy">
                     <span className="role-name">{user.name}</span>
                     <span className="role-desc">{ROLE_COPY[user.role] || user.role}</span>
+                    <span className="role-creds">
+                      {user.email} · password {user.password}
+                    </span>
                   </span>
                   <span className="role-action">
                     {active === user.id ? <Spinner size={17} /> : <Icon name="arrowRight" size={17} />}

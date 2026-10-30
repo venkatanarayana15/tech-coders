@@ -4993,6 +4993,133 @@ code {
   }
 }
 
+.signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.signin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.signin-field input {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.signin-field input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.signin-submit {
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.signin-submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.signin-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.role-creds {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.kit-edit-settings {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.kit-edit-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.kit-edit-settings input,
+.kit-edit-settings textarea,
+.kit-edit-fields input,
+.kit-edit-fields textarea,
+.kit-edit-fields select {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.kit-edit-settings textarea,
+.kit-edit-fields textarea {
+  resize: vertical;
+}
+
+.kit-edit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.kit-edit-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.kit-edit-inline {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+  width: 100%;
+}
+
+.kit-edit-inline.code {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -262,8 +262,8 @@ export default function App() {
     go(to);
   }, []);
 
-  async function signIn(userId) {
-    const data = await api.signIn(userId);
+  async function signIn(credentials) {
+    const data = await api.signIn(credentials);
     setSession(data.user);
     go('/');
   }
@@ -330,7 +330,7 @@ export default function App() {
   } else if (path === '/insights') {
     content = <Insights navigate={navigate} />;
   } else if (path === '/kit') {
-    content = <Kit navigate={navigate} notify={notify} />;
+    content = <Kit user={user} navigate={navigate} notify={notify} />;
   } else {
     const match = path.match(/^\/drafts\/([^/]+)$/);
     if (match) {

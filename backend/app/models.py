@@ -17,6 +17,10 @@ class User(SQLModel, table=True):
     role: str  # creator | reviewer | admin
     email: str
     initials: str
+    password_hash: str = ""
+
+
+DEMO_PASSWORD = "demo123"
 
 
 class Kit(SQLModel, table=True):

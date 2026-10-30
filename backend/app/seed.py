@@ -6,6 +6,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from sqlmodel import Session, select
 
+from .auth import DEMO_PASSWORD, hash_password
 from .config import settings
 from .engine import run_review
 from .kit_seed import KIT
@@ -19,6 +20,7 @@ USERS = [
         role="creator",
         email="ananya@northwind.example",
         initials="AR",
+        password_hash=hash_password(DEMO_PASSWORD),
     ),
     User(
         id="u-reviewer",
@@ -26,6 +28,7 @@ USERS = [
         role="reviewer",
         email="kabir@northwind.example",
         initials="KM",
+        password_hash=hash_password(DEMO_PASSWORD),
     ),
     User(
         id="u-admin",
@@ -33,6 +36,7 @@ USERS = [
         role="admin",
         email="meera@northwind.example",
         initials="MS",
+        password_hash=hash_password(DEMO_PASSWORD),
     ),
 ]
 

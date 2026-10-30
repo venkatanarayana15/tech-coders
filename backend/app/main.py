@@ -19,10 +19,10 @@ from pydantic import BaseModel
 from pypdf import PdfReader
 from sqlmodel import Session, select
 
-from .auth import clear_session, current_user, session_user, set_session
+from .auth import DEMO_PASSWORD, clear_session, current_user, session_user, set_session, verify_password
 from .config import settings
 from .db import engine, get_session, init_db
-from .engine import run_review
+from .engine import mask_pii, run_review
 from .kit_seed import KIT
 from .llm import model_identity
 from .models import Draft, Finding, Kit, Revision, User, utcnow
@@ -65,7 +65,20 @@ app.add_middleware(
 
 
 class SessionIn(BaseModel):
-    user_id: str
+    user_id: str | None = None
+    email: str | None = None
+    password: str | None = None
+
+
+class KitUpdateIn(BaseModel):
+    audience: str | None = None
+    tone: dict | None = None
+    tolerance: dict | None = None
+    palette: list | None = None
+    rules: list | None = None
+    facts: list | None = None
+    banned: list | None = None
+    preferred: list | None = None
 
 
 class DecisionIn(BaseModel):
@@ -81,6 +94,11 @@ class NoteIn(BaseModel):
 
 def _users(db: Session) -> dict[str, User]:
     return {user.id: user for user in db.exec(select(User)).all()}
+
+
+def _get_kit_data(db: Session) -> dict[str, Any]:
+    kit_row = db.get(Kit, KIT["id"])
+    return kit_row.data if kit_row and kit_row.data else dict(KIT)
 
 
 def _draft_or_404(db: Session, draft_id: str) -> Draft:
@@ -186,7 +204,14 @@ def users(db: Session = Depends(get_session)) -> dict[str, Any]:
     people = db.exec(select(User)).all()
     return {
         "users": [
-            {"id": u.id, "name": u.name, "role": u.role, "initials": u.initials}
+            {
+                "id": u.id,
+                "name": u.name,
+                "role": u.role,
+                "initials": u.initials,
+                "email": u.email,
+                "password": DEMO_PASSWORD if settings.demo_mode else None,
+            }
             for u in people
         ]
     }
@@ -206,9 +231,16 @@ def get_session_state(
 
 @app.post("/api/session")
 def sign_in(payload: SessionIn, response: Response, db: Session = Depends(get_session)) -> dict:
-    user = db.get(User, payload.user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="That demo account does not exist.")
+    if payload.user_id:
+        user = db.get(User, payload.user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="That demo account does not exist.")
+    elif payload.email:
+        user = db.exec(select(User).where(User.email == payload.email.strip().lower())).first()
+        if user is None or not verify_password(payload.password or "", user.password_hash):
+            raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+    else:
+        raise HTTPException(status_code=400, detail="Pick a demo account or enter credentials.")
     set_session(response, user.id)
     return {"user": {"id": user.id, "name": user.name, "role": user.role, "initials": user.initials}}
 
@@ -224,6 +256,7 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_sess
     drafts = db.exec(select(Draft)).all()
     findings = db.exec(select(Finding)).all()
     pending = sum(1 for draft in drafts if draft.status == "in_review")
+    kit_data = _get_kit_data(db)
     return {
         "user": {"id": user.id, "name": user.name, "role": user.role, "initials": user.initials},
         "demo_users": [
@@ -238,17 +271,80 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_sess
         },
         "model": model_identity(),
         "kit": {
-            "id": KIT["id"],
-            "name": KIT["name"],
-            "client": KIT["client"],
-            "version": KIT["version"],
+            "id": kit_data["id"],
+            "name": kit_data["name"],
+            "client": kit_data["client"],
+            "version": kit_data.get("version", KIT["version"]),
         },
     }
 
 
 @app.get("/api/kit")
-def get_kit(user: User = Depends(current_user)) -> dict:
-    return {"kit": KIT}
+def get_kit(
+    user: User = Depends(current_user), db: Session = Depends(get_session)
+) -> dict:
+    return {"kit": _get_kit_data(db)}
+
+
+@app.patch("/api/kit")
+def update_kit(
+    payload: KitUpdateIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_session),
+) -> dict:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only an admin can edit the brand kit.")
+    kit_row = db.get(Kit, KIT["id"])
+    if kit_row is None:
+        kit_row = Kit(
+            id=KIT["id"],
+            name=KIT["name"],
+            client=KIT["client"],
+            data=dict(KIT),
+        )
+    data = dict(kit_row.data or KIT)
+
+    snapshot = {
+        "version": data.get("version"),
+        "updated": data.get("updated"),
+        "owner": data.get("owner"),
+        "audience": data.get("audience"),
+        "tone": data.get("tone"),
+        "tolerance": data.get("tolerance"),
+        "palette": data.get("palette"),
+        "rules": data.get("rules"),
+        "facts": data.get("facts"),
+        "banned": data.get("banned"),
+        "preferred": data.get("preferred"),
+    }
+    history = list(data.get("history") or [])
+    history.append(snapshot)
+    data["history"] = history[-10:]
+
+    fields = (
+        ("audience", payload.audience),
+        ("tone", payload.tone),
+        ("tolerance", payload.tolerance),
+        ("palette", payload.palette),
+        ("rules", payload.rules),
+        ("facts", payload.facts),
+        ("banned", payload.banned),
+        ("preferred", payload.preferred),
+    )
+    for key, value in fields:
+        if value is not None:
+            data[key] = value
+
+    version = str(data.get("version") or KIT["version"])
+    match = re.match(r"^(\d+)\.(\d+)$", version)
+    data["version"] = f"{int(match.group(1))}.{int(match.group(2)) + 1}" if match else f"{version}+edit"
+    data["updated"] = utcnow().isoformat()
+    data["owner"] = user.name
+
+    kit_row.data = data
+    db.add(kit_row)
+    db.commit()
+    return {"kit": data}
 
 
 @app.get("/api/drafts")
@@ -307,11 +403,14 @@ async def create_draft(
             doc_text = doc_result[1]
             doc_name = Path(document.filename or "document").name
 
+    caption = mask_pii(caption.strip())
+    doc_text = mask_pii(doc_text)
+
     if not caption.strip() and not doc_text.strip():
         raise HTTPException(status_code=400, detail="Add a caption or a document to review.")
 
     kit_row = db.get(Kit, kit_id)
-    kit = kit_row.data if kit_row else KIT
+    kit = kit_row.data if kit_row else _get_kit_data(db)
 
     draft = Draft(
         id=new_id("d"),
@@ -479,7 +578,7 @@ def rerun(
         db.delete(finding)
     db.commit()
     result = run_review(
-        KIT,
+        _get_kit_data(db),
         draft.caption,
         draft.alt_text,
         settings.storage_dir / draft.image_file if draft.image_file else None,
@@ -520,7 +619,7 @@ def rerun(
 def insights(user: User = Depends(current_user), db: Session = Depends(get_session)) -> dict:
     drafts = db.exec(select(Draft)).all()
     findings = db.exec(select(Finding)).all()
-    rules = {rule["id"]: rule for rule in KIT.get("rules", [])}
+    rules = {rule["id"]: rule for rule in _get_kit_data(db).get("rules", [])}
 
     flagged: dict[str, int] = defaultdict(int)
     overridden: dict[str, int] = defaultdict(int)

@@ -87,6 +87,23 @@ def _normalise(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
+_AADHAAR_RE = re.compile(r"\b\d{4}[ -]\d{4}[ -]\d{4}\b|\b\d{12}\b")
+_EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
+_PHONE_RE = re.compile(
+    r"(?<![\w])\+?(?:\d{1,3}[-. ]?)?(?:\(\d{2,5}\)[-. ]?)?\d{4,5}[-. ]?\d{3,5}(?![\w])"
+)
+
+
+def mask_pii(text: str) -> str:
+    """Replace obvious personal identifiers before text is stored or reviewed."""
+    if not text:
+        return text
+    masked = _AADHAAR_RE.sub("[ID]", text)
+    masked = _EMAIL_RE.sub("[email]", masked)
+    masked = _PHONE_RE.sub("[phone]", masked)
+    return masked
+
+
 def _sentences(text: str) -> list[str]:
     parts = re.split(r"(?<=[.!?])\s+|\n+", text)
     return [p.strip() for p in parts if p.strip()]
@@ -208,6 +225,7 @@ def check_claims(text: str, caption: str, doc_text: str, kit: dict[str, Any]) ->
     findings: list[dict[str, Any]] = []
     facts = kit.get("facts", [])
     banned = kit.get("banned", [])
+    seen_spans: list[str] = []
     for sentence in _sentences(text):
         banned_ranges: list[tuple[int, int]] = []
         for entry in banned:
@@ -263,6 +281,11 @@ def check_claims(text: str, caption: str, doc_text: str, kit: dict[str, Any]) ->
                             "kind": "text",
                         }
                     )
+                norm_span = _normalise(span)
+                if any(norm_span in kept for kept in seen_spans):
+                    continue
+                seen_spans.append(norm_span)
+
                 findings.append(
                     _finding(
                         check="claims",

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import secrets
+
 from fastapi import Depends, HTTPException, Request, Response
 from itsdangerous import BadSignature, URLSafeSerializer
 from sqlmodel import Session
@@ -9,6 +13,29 @@ from .db import get_session
 from .models import User
 
 COOKIE_NAME = "prism_session"
+DEMO_PASSWORD = "demo123"
+_PBKDF2_ITERATIONS = 120_000
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), bytes.fromhex(salt), _PBKDF2_ITERATIONS
+    )
+    return f"pbkdf2${salt}${digest.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        algo, salt, expected = stored.split("$", 2)
+        if algo != "pbkdf2":
+            return False
+        digest = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), bytes.fromhex(salt), _PBKDF2_ITERATIONS
+        )
+        return hmac.compare_digest(digest.hex(), expected)
+    except Exception:
+        return False
 _SERIALIZER = URLSafeSerializer(settings.secret_key, salt="prismcheck-session")
 
 
